@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-service
+  namespace: monitoring-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: python-service
+
+  template:
+    metadata:
+      labels:
+        app: python-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+
+    spec:
+      containers:
+        - name: python-service
+
+          image: danielolasupo/payment-service:1.0
+
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 8080
+
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 15
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: python-service
+  namespace: monitoring-demo
+spec:
+  selector:
+    app: python-service
+
+  ports:
+    - port: 80
+      targetPort: 8080
