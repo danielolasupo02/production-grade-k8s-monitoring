@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prom-operator
+  namespace: monitoring
+spec:
+  serviceMonitorSelector:
+    matchLabels:
+      team: platform
+
+  scrapeInterval: 15s
+  evaluationInterval: 15s

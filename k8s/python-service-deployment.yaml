@@ -49,10 +49,12 @@ kind: Service
 metadata:
   name: python-service
   namespace: monitoring-demo
+  labels:
+    app: python-service
 spec:
   selector:
     app: python-service
-
   ports:
-    - port: 80
+    - name: metrics
+      port: 80
       targetPort: 8080
