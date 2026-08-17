@@ -1,12 +1,24 @@
-apiVersion: monitoring.coreos.com/v1
-kind: Prometheus
-metadata:
-  name: prom-operator
-  namespace: monitoring
-spec:
-  serviceMonitorSelector:
-    matchLabels:
+  apiVersion: monitoring.coreos.com/v1
+  kind: Prometheus
+  metadata:
+    name: prometheus-main
+    namespace: monitoring
+    labels:
       team: platform
-
-  scrapeInterval: 15s
-  evaluationInterval: 15s
+  spec:
+    replicas: 1
+    serviceAccountName: prometheus-operator-kube-p-prometheus
+    serviceMonitorSelector:
+      matchLabels:
+        team: platform
+    serviceMonitorNamespaceSelector: { }
+    resources:
+      requests:
+        memory: 400Mi
+        cpu: 200m
+      limits:
+        memory: 800Mi
+        cpu: 500m
+    retention: 7d
+    scrapeInterval: 15s
+    evaluationInterval: 15s

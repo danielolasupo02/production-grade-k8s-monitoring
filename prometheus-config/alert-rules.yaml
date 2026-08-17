@@ -1,0 +1,191 @@
+groups:
+
+  # ============================================================
+  # APPLICATION HEALTH
+  # ============================================================
+
+  - name: application-health
+    interval: 30s
+
+    rules:
+
+      # --------------------------------------------------------
+      # 1. Service Down
+      # --------------------------------------------------------
+
+      - alert: ServiceDown
+        expr: |
+          up{namespace="monitoring-demo"} == 0
+        for: 2m
+
+        labels:
+          severity: critical
+          component: backend
+
+        annotations:
+          summary: "Service {{ $labels.service }} is down"
+          description: |
+            Prometheus cannot scrape {{ $labels.service }}
+            in namespace {{ $labels.namespace }}.
+
+
+      # --------------------------------------------------------
+      # 2. High Error Rate
+      # --------------------------------------------------------
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum by (service) (
+              rate(http_requests_total{
+                namespace="monitoring-demo",
+                status=~"5.."
+              }[5m])
+            )
+            /
+            sum by (service) (
+              rate(http_requests_total{
+                namespace="monitoring-demo"
+              }[5m])
+            )
+          ) > 0.05
+
+        for: 5m
+
+        labels:
+          severity: critical
+          component: backend
+
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: |
+            Service {{ $labels.service }} has an HTTP 5xx
+            error rate above 5% for more than 5 minutes.
+            Current value: {{ $value | humanizePercentage }}.
+
+
+      # --------------------------------------------------------
+      # 3. High P95 Latency
+      # --------------------------------------------------------
+
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service) (
+              rate(http_request_duration_seconds_bucket{
+                namespace="monitoring-demo"
+              }[5m])
+            )
+          ) > 1
+
+        for: 10m
+
+        labels:
+          severity: warning
+          component: backend
+
+        annotations:
+          summary: "High latency on {{ $labels.service }}"
+          description: |
+            The P95 request latency for {{ $labels.service }}
+            is above 1 second.
+            Current value: {{ $value }}s.
+
+
+  # ============================================================
+  # RESOURCE UTILIZATION
+  # ============================================================
+
+  - name: resource-utilization
+    interval: 30s
+
+    rules:
+
+      # --------------------------------------------------------
+      # 4. High CPU
+      # --------------------------------------------------------
+
+      - alert: HighCPUUsage
+        expr: |
+          (
+            sum by (namespace, pod) (
+              rate(container_cpu_usage_seconds_total{
+                namespace="monitoring-demo",
+                container!="",
+                container!="POD"
+              }[5m])
+            )
+          ) > 0.8
+
+        for: 10m
+
+        labels:
+          severity: warning
+          component: infrastructure
+
+        annotations:
+          summary: "High CPU usage on {{ $labels.pod }}"
+          description: |
+            Pod {{ $labels.pod }} is consuming more than
+            0.8 CPU cores for over 10 minutes.
+            Current value: {{ $value }}.
+
+
+      # --------------------------------------------------------
+      # 5. High Memory
+      # --------------------------------------------------------
+
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            container_memory_working_set_bytes{
+              namespace="monitoring-demo",
+              container!="",
+              container!="POD"
+            }
+            /
+            container_spec_memory_limit_bytes{
+              namespace="monitoring-demo",
+              container!="",
+              container!="POD"
+            }
+          ) > 0.80
+
+        for: 10m
+
+        labels:
+          severity: warning
+          component: infrastructure
+
+        annotations:
+          summary: "High memory usage on {{ $labels.pod }}"
+          description: |
+            Pod {{ $labels.pod }} is using more than 80%
+            of its configured memory limit.
+            Current value: {{ $value | humanizePercentage }}.
+
+
+      # --------------------------------------------------------
+      # 6. Pod Restart Rate
+      # --------------------------------------------------------
+
+      - alert: HighPodRestartRate
+        expr: |
+          increase(
+            kube_pod_container_status_restarts_total{
+              namespace="monitoring-demo"
+            }[15m]
+          ) > 3
+
+        for: 5m
+
+        labels:
+          severity: warning
+          component: kubernetes
+
+        annotations:
+          summary: "Pod {{ $labels.pod }} is restarting frequently"
+          description: |
+            Pod {{ $labels.pod }} has restarted more than
+            3 times within the last 15 minutes.
