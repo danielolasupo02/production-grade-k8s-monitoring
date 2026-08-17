@@ -1,0 +1,130 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: monitoring-demo-alerts
+  namespace: monitoring-demo
+  labels:
+    team: platform
+    release: prometheus-operator
+spec:
+  groups:
+
+    - name: payment-service-alerts
+      rules:
+
+        - alert: PaymentServiceHighErrorRate
+          expr: |
+            sum(rate(payment_errors_total[5m]))
+            /
+            sum(rate(payment_requests_total[5m]))
+            > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: payment-service
+          annotations:
+            summary: "High error rate on payment-service"
+            description: "payment-service error rate is {{ $value | humanizePercentage }} over the last 5 minutes, above the 5% threshold."
+
+        - alert: PaymentServiceHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(payment_request_latency_seconds_bucket[5m])) by (le)
+            ) > 1.0
+          for: 10m
+          labels:
+            severity: warning
+            service: payment-service
+          annotations:
+            summary: "High latency on payment-service"
+            description: "95th percentile latency for payment-service is {{ $value }}s, above the 1s threshold."
+
+        - alert: PaymentServiceHighCPUUsage
+          expr: avg(process_cpu_usage_percent{job="python-service"}) > 80
+          for: 10m
+          labels:
+            severity: warning
+            service: payment-service
+          annotations:
+            summary: "High CPU usage on payment-service"
+            description: "payment-service average CPU usage is {{ $value | humanize }}%, above the 80% threshold."
+
+        - alert: PaymentServiceHighMemoryUsage
+          expr: avg(process_memory_usage_bytes{job="python-service"}) > 500 * 1024 * 1024
+          for: 10m
+          labels:
+            severity: warning
+            service: payment-service
+          annotations:
+            summary: "High memory usage on payment-service"
+            description: "payment-service average memory usage is {{ $value | humanize1024 }}B, above the 500MiB threshold."
+
+        - alert: PaymentServiceDown
+          expr: up{job="python-service"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: payment-service
+          annotations:
+            summary: "payment-service target is down"
+            description: "Prometheus has not been able to scrape payment-service for 2 minutes."
+
+    - name: order-service-alerts
+      rules:
+
+        - alert: OrderServiceHighErrorRate
+          expr: |
+            sum(rate(order_errors_total[5m]))
+            /
+            sum(rate(order_requests_total[5m]))
+            > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            service: order-service
+          annotations:
+            summary: "High error rate on order-service"
+            description: "order-service error rate is {{ $value | humanizePercentage }} over the last 5 minutes, above the 5% threshold."
+
+        - alert: OrderServiceHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(order_request_latency_seconds_bucket[5m])) by (le)
+            ) > 1.0
+          for: 10m
+          labels:
+            severity: warning
+            service: order-service
+          annotations:
+            summary: "High latency on order-service"
+            description: "95th percentile latency for order-service is {{ $value }}s, above the 1s threshold."
+
+        - alert: OrderServiceHighCPUUsage
+          expr: avg(process_cpu_usage{job="java-service"}) > 0.8
+          for: 10m
+          labels:
+            severity: warning
+            service: order-service
+          annotations:
+            summary: "High CPU usage on order-service"
+            description: "order-service average CPU usage is {{ $value | humanizePercentage }}, above the 80% threshold."
+
+        - alert: OrderServiceHighMemoryUsage
+          expr: sum(jvm_memory_used_bytes{job="java-service", area="heap"}) > 500 * 1024 * 1024
+          for: 10m
+          labels:
+            severity: warning
+            service: order-service
+          annotations:
+            summary: "High JVM heap usage on order-service"
+            description: "order-service JVM heap usage is {{ $value | humanize1024 }}B, above the 500MiB threshold."
+
+        - alert: OrderServiceDown
+          expr: up{job="java-service"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            service: order-service
+          annotations:
+            summary: "order-service target is down"
+            description: "Prometheus has not been able to scrape order-service for 2 minutes."
