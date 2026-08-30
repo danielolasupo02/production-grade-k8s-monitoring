@@ -1,0 +1,225 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "Service Health (Up/Down)",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "up{namespace=\"$namespace\", job=\"python-service\"}",
+          "legendFormat": "payment-service",
+          "refId": "A"
+        },
+        {
+          "expr": "up{namespace=\"$namespace\", job=\"java-service\"}",
+          "legendFormat": "order-service",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": 0, "color": "red" },
+              { "value": 1, "color": "green" }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "sum(rate(payment_requests_total{namespace=\"$namespace\"}[5m]))",
+          "legendFormat": "payment-service",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(order_requests_total{application=\"order-api\"}[5m]))",
+          "legendFormat": "order-service",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": []
+      }
+    },
+    {
+      "title": "p95 Latency by Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(payment_request_latency_seconds_bucket{namespace=\"$namespace\"}[5m])) by (le))",
+          "legendFormat": "payment-service p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(order_request_latency_seconds_bucket{application=\"order-api\"}[5m])) by (le))",
+          "legendFormat": "order-service p95",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Error Rate (%) by Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(payment_errors_total{namespace=\"$namespace\"}[5m])) / sum(rate(payment_requests_total{namespace=\"$namespace\"}[5m]))",
+          "legendFormat": "payment-service error %",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * sum(rate(order_errors_total{application=\"order-api\"}[5m])) / sum(rate(order_requests_total{application=\"order-api\"}[5m]))",
+          "legendFormat": "order-service error %",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "max": 100, "min": 0 },
+        "overrides": []
+      }
+    },
+    {
+      "title": "CPU Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "avg(process_cpu_usage_percent{namespace=\"$namespace\", job=\"python-service\"})",
+          "legendFormat": "payment-service CPU %",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod=~\"java-service.*\"}[5m])) * 100",
+          "legendFormat": "order-service CPU %",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "avg(process_memory_usage_bytes{namespace=\"$namespace\", job=\"python-service\"})",
+          "legendFormat": "payment-service memory",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"$namespace\", pod=~\"java-service.*\"})",
+          "legendFormat": "order-service memory",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Top Endpoints by p95 Latency",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum(rate(payment_request_latency_seconds_bucket{namespace=\"$namespace\"}[5m])) by (le, endpoint)))",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum(rate(order_request_latency_seconds_bucket{application=\"order-api\"}[5m])) by (le, endpoint)))",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["monitoring-demo", "prometheus", "kubernetes"],
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0,
+        "refresh": 1
+      },
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(up, namespace)",
+        "current": {},
+        "refresh": 2,
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(up{namespace=\"$namespace\"}, job)",
+        "current": {},
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Monitoring Demo — Service Overview",
+  "uid": "monitoring-demo-overview",
+  "version": 1,
+  "weekStart": ""
+}
