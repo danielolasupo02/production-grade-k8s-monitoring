@@ -72,7 +72,7 @@ Both services expose the same four metric shapes, chosen to answer the core oper
 - `process_cpu_usage_percent`, `process_memory_usage_bytes` (Gauges, via `psutil`, sampled on a background thread)
 - Exposed at `/metrics`
 
-![Python /metrics endpoint output](screenshots/07.python-prometheus-metrics-endpoint.PNG)
+![Python /metrics endpoint output](screenshots/07.python-prometheus-metrics-endpoint.png)
 
 ## Prometheus & ServiceMonitor Architecture
 
