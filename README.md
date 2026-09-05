@@ -3,6 +3,7 @@
 A Prometheus/Grafana observability stack built around a two-service Kubernetes application (Java/Spring Boot + Python/Flask), designed around Kubernetes-native service discovery.
 
 > **Scope note:** this is a production-*oriented* monitoring design, validated in a local `kind` cluster
+
 ## Overview
 
 Two services: an order API (Java/Spring Boot) and a payment service (Python/Flask), run in a local multi-node Kubernetes cluster. Each is instrumented to expose Prometheus metrics for request volume, error rate, latency, and resource usage. A Prometheus Operator managed stack discovers both services through `ServiceMonitor` custom resources, evaluates alerting rules against their metrics, and a Grafana dashboard surfaces the resulting signals for an operator.
@@ -11,7 +12,7 @@ The project was built to demonstrate the full observability lifecycle: instrumen
 
 ## Architecture
 
-[IMAGE PATH: 00-production-grade-monitoring-design] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\ProductionGradeMonitoringDesign.png)
+![Production-grade monitoring system architecture](screenshots/ProductionGradeMonitoringDesign.png)
 
 ## Technology Stack
 
@@ -31,25 +32,25 @@ The project was built to demonstrate the full observability lifecycle: instrumen
 
 The cluster is provisioned via `kind` with an explicit multi-node topology (`cluster-config.yaml`). This matters because Kubernetes service discovery and pod scheduling behave differently across nodes than on a single node, and the monitoring design needs to hold up in that reality.
 
-[IMAGE PATH: 01-kind-cluster-nodes] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\01-kind-cluster-nodes.png)
+![kind cluster nodes, all Ready](screenshots/01-kind-cluster-nodes.png)
 
 Application workloads run in a dedicated `monitoring-demo` namespace, separate from the `monitoring` namespace hosting Prometheus/Grafana/Alertmanager, a deliberate separation of application and platform concerns.
 
-[IMAGE PATH: 03-java-service-running] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\03-java-service-running.png)
+![Java order-service pods running](screenshots/03-java-service-running.png)
 
-[IMAGE PATH: 04-python-service-running] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\04-python-service-running.png)
+![Python payment-service pods running](screenshots/04-python-service-running.png)
 
-[IMAGE PATH: 03-monitoring-stack-running] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\03-monitoring-stack-running.png)
+![Monitoring stack pods running](screenshots/03-monitoring-stack-running.png)
 
 NGINX Ingress routes external traffic to both services under path-based rules (`/java`, `/python`).
 
-[IMAGE PATH: 02-nginx-ingress-running] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\02-nginx-ingress-running.png)
+![NGINX Ingress Controller running](screenshots/02-nginx-ingress-running.png)
 
-[IMAGE PATH: 05-nginx-ingress-created] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\05-kubernetes-services.png)
+![NGINX Ingress resource created](screenshots/05-kubernetes-services.png)
 
 Each service is fronted by a Kubernetes `Service` object; these are the objects `ServiceMonitor` selectors target.
 
-[IMAGE PATH: 05-kubernetes-services] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\05-kubernetes-services.png)
+![Kubernetes Service objects for both applications](screenshots/05-kubernetes-services.png)
 
 ## Application Instrumentation
 
@@ -62,7 +63,7 @@ Both services expose the same four metric shapes, chosen to answer the core oper
 - `process_cpu_usage`, `jvm_memory_used_bytes` (Gauges): provided automatically by Micrometer/Actuator, no custom code required
 - Exposed at `/actuator/prometheus`
 
-[IMAGE PATH: 06-java-prometheus-metrics-endpoint] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\06.java-prometheus-metrics-endpoint.png)
+![Java /actuator/prometheus endpoint output](screenshots/06.java-prometheus-metrics-endpoint.png)
 
 **Python (Flask / prometheus_client):**
 - `payment_requests_total` (Counter, labeled by status): request volume
@@ -71,22 +72,21 @@ Both services expose the same four metric shapes, chosen to answer the core oper
 - `process_cpu_usage_percent`, `process_memory_usage_bytes` (Gauges, via `psutil`, sampled on a background thread)
 - Exposed at `/metrics`
 
-[IMAGE PATH: 07-python-prometheus-metrics-endpoint]
+![Python /metrics endpoint output](screenshots/07.python-prometheus-metrics-endpoint.PNG)
 
 ## Prometheus & ServiceMonitor Architecture
 
 Prometheus is deployed via the Prometheus Operator (kube-prometheus-stack), rather than a bare Prometheus binary with a static `scrape_configs` file. This means scrape targets are derived declaratively from Kubernetes objects (`ServiceMonitor` -> `Service` -> `Endpoints`) instead of hardcoded IPs.
 
-[IMAGE PATH: 09-prometheus-operator-running] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\09.prometheus-operator-running.png)
+![Prometheus Operator running](screenshots/09.prometheus-operator-running.png)
 
-
-[IMAGE PATH: 09-prometheus-cr] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\09.prometheus-cr.PNG)
+![Prometheus custom resource](screenshots/09.prometheus-cr.PNG)
 
 A `ServiceMonitor` exists per service, each defining the scrape port, metrics path, interval, and relabeling to attach `namespace`/`cluster` labels consistently across both services' metrics, important for writing PromQL that isn't service-specific string matching.
 
-[IMAGE PATH: 08-servicemonitors] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\08.servicemonitors.PNG)
+![ServiceMonitor resources](screenshots/08.servicemonitors.PNG)
 
-[IMAGE PATH: 10-servicemonitors-created] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\10.servicemonitors-created.png)
+![ServiceMonitors successfully created](screenshots/10.servicemonitors-created.png)
 
 The Prometheus custom resource's `serviceMonitorNamespaceSelector` is intentionally left empty (cluster-wide), since application services live in a different namespace than Prometheus itself.
 
@@ -94,15 +94,15 @@ The Prometheus custom resource's `serviceMonitorNamespaceSelector` is intentiona
 
 This is the core competency the project demonstrates: rather than a static list of scrape targets, Prometheus uses the `endpoints` and `pod` Kubernetes SD roles under the hood (abstracted via `ServiceMonitor`) to continuously reconcile its scrape target list against the live state of the cluster.
 
-[IMAGE PATH: 10-prometheus-java-python-service-monitor] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\10.prometheus-java-python-service-monitor.PNG)
+![Prometheus configuration reflecting Java and Python ServiceMonitors](screenshots/10.prometheus-java-python-service-monitor.PNG)
 
-[IMAGE PATH: 11-prometheus-targets-up] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\11.prometheus-targets-up.png)
+![Prometheus targets page, both services UP](screenshots/11.prometheus-targets-up.png)
 
 This was validated directly: scaling the Python service's replica count produced additional scrape targets in Prometheus without any manual configuration change.
 
-[IMAGE PATH: 14-prometheus-service-discovery-targets-up-after-scale-up] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\14.prometheus-service-discovery-targets-up-after-scale-up.png)
+![Prometheus targets after scale-up, showing additional discovered targets](screenshots/14.prometheus-service-discovery-targets-up-after-scale-up.png)
 
-[IMAGE PATH: 14a-python-pods-scaledup-servicediscovery-test]![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\14a.python-pods-scaleup-servicediscovery-test.PNG)
+![Python pods scaled up for the service-discovery test](screenshots/14a.python-pods-scaleup-servicediscovery-test.PNG)
 
 ## Alerting Strategy
 
@@ -115,15 +115,15 @@ Alerting rules are deployed as a `PrometheusRule` CRD, grouped per service, cove
 
 Every rule uses a `for:` duration rather than firing on the instant a threshold is crossed. This avoids alert noise from momentary spikes and reflects how these thresholds would actually be used operationally.
 
-[IMAGE PATH: 12-verify-alert-rules]  ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\12.verify-alert-rules.PNG)
+![Alert rules loaded and validated in Prometheus](screenshots/12.verify-alert-rules.PNG)
 
-> This screenshot confirms the rules are syntactically valid and loaded by Prometheus. It does not by itself confirm an alert has fired under real failure conditions; 
+> This screenshot confirms the rules are syntactically valid and loaded by Prometheus. It does not by itself confirm an alert has fired under real failure conditions.
 
 ## Grafana Dashboard
 
 Grafana is deployed with the monitoring stack and preconfigured to use Prometheus as its data source. The dashboard includes a service-health gauge, request-rate and error-rate time series, p95 latency panels, resource-usage panels, and a top-endpoints-by-latency table, with `namespace`/`service` template variables for filtering.
 
-[IMAGE PATH: 13-production-grafana-dashboard] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\13.production-grafana-dashboard.PNG)
+![Grafana monitoring dashboard](screenshots/13.production-grafana-dashboard.PNG)
 
 ## Monitoring Validation
 
@@ -133,18 +133,19 @@ Validation was approached in layers rather than assuming a deployed stack works 
 2. **Discovery validation**: scaling a Deployment and confirming new targets appear automatically, proving the discovery mechanism (not just the initial static state) works.
 3. **Load validation**: generating synthetic HTTP traffic with `hey` against both services to confirm metrics respond to real request volume.
 
-[IMAGE PATH: 15a-orders-baseline-load-hey-output] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\15a.orders-baseline-load-hey-output.PNG)
+![Baseline load test output for orders](screenshots/15a.orders-baseline-load-hey-output.PNG)
 
-[IMAGE PATH: 16a-payments-baseline-load-hey-output]![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\16a.payments-baseline-load-hey-output.png)
+![Baseline load test output for payments](screenshots/16a.payments-baseline-load-hey-output.png)
 
-> failure-injection scenarios (forced error rates, latency spikes, pod deletion) and end-to-end Alertmanager delivery were part of the test plan for this project
+> Failure-injection scenarios (forced error rates, latency spikes, pod deletion) and end-to-end Alertmanager delivery were part of the test plan for this project.
+
 ## Load Testing
 
 Baseline HTTP load was generated with `hey` against both `/api/orders` and `/api/payments` to confirm request-volume and latency metrics reflect real traffic, not just static/idle values.
 
-[IMAGE PATH: 15b-orders-baseline-load-hey-output] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\15b.orders-baseline-load-hey-output.PNG)
+![Additional orders baseline load evidence](screenshots/15b.orders-baseline-load-hey-output.PNG)
 
-[IMAGE PATH: 16b-payments-baseline-load-hey-output] ![](C:\Users\USER\Documents\PersonalDevelopment\Tech\Projects\production-grade-k8s-monitoring\screenshots\16b.payments-baseline-load-hey-output.PNG)
+![Additional payments baseline load evidence](screenshots/16b.payments-baseline-load-hey-output.PNG)
 
 ## What the Project Demonstrates
 
@@ -170,6 +171,7 @@ What this project does **not** claim, and what a real production deployment woul
 
 ```
 .
+├── screenshots/
 ├── cluster-config.yaml
 ├── k8s/
 │   ├── java-service-deployment.yaml
